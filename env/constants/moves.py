@@ -1,0 +1,4 @@
+UP_MOVE = (0, 1)
+LEFT_MOVE = (-1, 0)
+RIGHT_MOVE = (1, 0)
+DOWN_MOVE = (0, -1)
