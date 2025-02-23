@@ -220,6 +220,5 @@ class SnakeEnv(gym.Env):
         return False
 
     def distanceFromFood(self, cell):
-        xDistance = abs(self.food[0] - cell[0])
-        yDistance = abs(self.food[1] - cell[1])
-        return math.sqrt((xDistance**2) + yDistance**2)
+        return abs(self.food[0] - cell[0]) + abs(self.food[1] - cell[1])
+
