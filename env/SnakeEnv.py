@@ -12,7 +12,9 @@ class SnakeEnv(gym.Env):
     def __init__(self, gridSize):
         super(SnakeEnv, self).__init__()
 
-        self.generation = 0
+        self.generation = -1
+        self.rewardPerGeneration = []
+
         self.gridSize = gridSize
         self.snake = [(0, 0)]
         self.generateFoodInEmptySpace()
@@ -28,7 +30,6 @@ class SnakeEnv(gym.Env):
         # pygame.display.set_caption("Snake Game")
         # self.clock = pygame.time.Clock()
 
-
         self.action_space = spaces.Discrete(4)  # head can move up, down, left, right
         self.observation_space = spaces.Box(
             low=0, high=2, shape=(self.gridSize, self.gridSize), dtype=np.int8
@@ -42,12 +43,13 @@ class SnakeEnv(gym.Env):
         self.direction = directions.RIGHT
         self.previousDirection = directions.RIGHT
         self.generation += 1
+        self.rewardPerGeneration.append(0)
         return self.getObservationSpace()
 
     def step(self, action):
         self.convertActionToMove(action)
         if not self.isValidMove():
-            reward, done = -10, True
+            reward, done = -10000000, True # discourage making invalid moves, huge negative score and immediately end game
         else:
             self.moveSnake()
             reward, done = self.calculateMoveAftermath()
@@ -55,34 +57,38 @@ class SnakeEnv(gym.Env):
         # if self.generation % 10000 < 1000:
         #     self.render()
 
+        self.rewardPerGeneration[self.generation] += reward
         return self.getObservationSpace(), reward, done, {}
 
-        
     def render(self):
         pygame.display.set_caption("Snake Game - Generation " + str(self.generation))
         self.screen.fill((0, 0, 0))
-        
+
         # Draw the snake
         for segment in self.snake:
             pygame.draw.rect(
-                self.screen, (0, 255, 0),
+                self.screen,
+                (0, 255, 0),
                 pygame.Rect(
                     segment[1] * self.cellSize,
                     segment[0] * self.cellSize,
-                    self.cellSize, self.cellSize
-                )
+                    self.cellSize,
+                    self.cellSize,
+                ),
             )
-        
+
         # Draw the food
         pygame.draw.rect(
-            self.screen, (255, 0, 0),
+            self.screen,
+            (255, 0, 0),
             pygame.Rect(
                 self.food[1] * self.cellSize,
                 self.food[0] * self.cellSize,
-                self.cellSize, self.cellSize
-            )
+                self.cellSize,
+                self.cellSize,
+            ),
         )
-        
+
         pygame.display.flip()
         self.clock.tick(10000)  # Control game speed
 
@@ -91,7 +97,10 @@ class SnakeEnv(gym.Env):
         symbol_to_number = {" ": 0, "F": 1, "0": 2}
         return np.array(
             [
-                [symbol_to_number[self.getCoordinateSymbol((row, column))] for column in range(self.gridSize)]
+                [
+                    symbol_to_number[self.getCoordinateSymbol((row, column))]
+                    for column in range(self.gridSize)
+                ]
                 for row in range(self.gridSize)
             ],
             dtype=np.int8,
@@ -100,7 +109,7 @@ class SnakeEnv(gym.Env):
     def moveSnake(self):
         newHead = (
             self.getHeadXCoordinate() + self.move[0],
-            self.getHeadXCoordinate() + self.move[1],
+            self.getHeadYCoordinate() + self.move[1],
         )
         self.snake.insert(0, newHead)
 
@@ -145,21 +154,24 @@ class SnakeEnv(gym.Env):
         return False
 
     def calculateMoveAftermath(self):
-        if self.atFood():
+        if len(self.snake) == self.gridSize**2:
+            reward = 10000000
+            done = True
+        elif self.atFood():
             self.generateFoodInEmptySpace()
-            reward = 20
+            reward = max(1000, len(self.snake)**2) # each food is worth more than the previous, encourage constant growth
             done = False
         elif self.outOfBounds() or self.selfCollision():
             self.snake.pop()
-            reward = -10
+            reward = -10 * len(self.snake)
             done = True
         elif self.movedTowardsFood():
             self.snake.pop()
-            reward = .1  # incentivise progress
+            reward = 0.5  # incentivise progress
             done = False
         else:
             self.snake.pop()
-            reward = -0.1 # reduce stalling
+            reward = -0.2  # reduce stalling
             done = False
 
         return reward, done
@@ -179,25 +191,31 @@ class SnakeEnv(gym.Env):
         return emptySpaces
 
     def isValidMove(self):
-        if self.previousDirection == directions.LEFT and self.direction == directions.RIGHT \
-        or self.previousDirection == directions.RIGHT and self.direction == directions.LEFT \
-        or self.previousDirection == directions.UP and self.direction == directions.DOWN \
-        or self.previousDirection == directions.DOWN and self.direction == directions.UP:
+        if (
+            self.previousDirection == directions.LEFT
+            and self.direction == directions.RIGHT
+            or self.previousDirection == directions.RIGHT
+            and self.direction == directions.LEFT
+            or self.previousDirection == directions.UP
+            and self.direction == directions.DOWN
+            or self.previousDirection == directions.DOWN
+            and self.direction == directions.UP
+        ):
             return False
         return True
 
     def getCoordinateSymbol(self, coordinate):
         if coordinate == self.food:
-            return 'F'
+            return "F"
         elif coordinate in self.snake:
-            return '0'
+            return "0"
         else:
-            return ' '
+            return " "
 
     def movedTowardsFood(self):
         newHead = self.getHead()
         oldHead = self.snake[1]
-        if (self.distanceFromFood(newHead) < self.distanceFromFood(oldHead)):
+        if self.distanceFromFood(newHead) < self.distanceFromFood(oldHead):
             return True
         return False
 
