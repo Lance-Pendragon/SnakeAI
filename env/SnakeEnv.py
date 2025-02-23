@@ -140,7 +140,7 @@ class SnakeEnv(gym.Env):
 
     def outOfBounds(self):
         outOfXBounds = self.getHeadXCoordinate() - 1 < 0
-        outOfYBounds = self.getHeadXCoordinate() >= self.gridSize
+        outOfYBounds = self.getHeadYCoordinate() >= self.gridSize
         if outOfXBounds or outOfYBounds:
             return True
         return False
