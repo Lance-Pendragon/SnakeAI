@@ -1,5 +1,6 @@
 import gym
 from env.SnakeEnv import SnakeEnv
+from env.snakeenvv2 import SnakeEnvV2
 from stable_baselines3 import PPO, DQN
 import matplotlib.pyplot as plt
 import numpy as np
@@ -7,12 +8,14 @@ import numpy as np
 
 def main():
     print("Hello, SnakeAI world!")
-    env = SnakeEnv(50)
-    timestamp = 3000000
+    env = SnakeEnv(20)
+    timestamp = 10000000
     model = PPO('MlpPolicy', env, verbose=1)
     model.learn(timestamp)
-    model.save('ppo_snake_3_million_timestamps')
+    model.save('ppo_snake_10000000_timestamps')
     plot_rewards(env)
+
+    # model = PPO.load('ppo_snake_10000000_timestamps', env).learn(10000)
 
     # env = SnakeEnv(50)
     # timestamp = 1000000
