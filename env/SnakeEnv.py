@@ -5,6 +5,7 @@ import numpy as np
 from .constants import directions, moves
 from gym import spaces
 from random import randint, choice
+import math
 
 
 class SnakeEnv(gym.Env):
@@ -16,10 +17,9 @@ class SnakeEnv(gym.Env):
         self.snake = [(0, 0)]
         self.generateFoodInEmptySpace()
         self.move = moves.RIGHT_MOVE  # start moving out to the right
-        self.direction = directions.RIGHT
-        
-        self.previousDirection = directions.RIGHT
 
+        self.direction = directions.RIGHT
+        self.previousDirection = directions.RIGHT
 
         # self.cellSize = 20
         # self.windowSize = self.gridSize * self.cellSize
@@ -147,15 +147,19 @@ class SnakeEnv(gym.Env):
     def calculateMoveAftermath(self):
         if self.atFood():
             self.generateFoodInEmptySpace()
-            reward = 10
+            reward = 20
             done = False
         elif self.outOfBounds() or self.selfCollision():
             self.snake.pop()
-            reward = -1
+            reward = -10
             done = True
+        elif self.movedTowardsFood():
+            self.snake.pop()
+            reward = .1  # incentivise progress
+            done = False
         else:
             self.snake.pop()
-            reward = -0.01  # decentivise stalling
+            reward = -0.1 # reduce stalling
             done = False
 
         return reward, done
@@ -189,3 +193,15 @@ class SnakeEnv(gym.Env):
             return '0'
         else:
             return ' '
+
+    def movedTowardsFood(self):
+        newHead = self.getHead()
+        oldHead = self.snake[1]
+        if (self.distanceFromFood(newHead) < self.distanceFromFood(oldHead)):
+            return True
+        return False
+
+    def distanceFromFood(self, cell):
+        xDistance = abs(self.food[0] - cell[0])
+        yDistance = abs(self.food[1] - cell[1])
+        return math.sqrt((xDistance**2) + yDistance**2)
