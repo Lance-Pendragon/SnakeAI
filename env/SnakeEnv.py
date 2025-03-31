@@ -7,9 +7,9 @@ from gym import spaces
 from random import randint, choice
 import math
 
-shouldRender = True
-renderCount = 1
-renderInterval = 300
+shouldRender = False
+displayGenerationFramesPerSecond = 8
+fastForwardFramesPerSecond = 99999999
 
 class SnakeEnv(gym.Env):
     def __init__(self, gridSize):
@@ -17,6 +17,10 @@ class SnakeEnv(gym.Env):
 
         self.generation = -1
         self.rewardPerGeneration = [0]
+
+        self.framesPerSecond = displayGenerationFramesPerSecond
+        self.generationToRender = 100
+        self.isDisplayGeneration = False
 
         self.gridSize = gridSize
         self.snake = [(self.gridSize // 2, self.gridSize // 2)]
@@ -27,7 +31,7 @@ class SnakeEnv(gym.Env):
         self.previousDirection = directions.RIGHT
 
         if shouldRender:
-            self.cellSize = 50
+            self.cellSize = 25
             self.windowSize = self.gridSize * self.cellSize
             pygame.init()
             self.screen = pygame.display.set_mode((self.windowSize, self.windowSize))
@@ -57,20 +61,27 @@ class SnakeEnv(gym.Env):
         self.previousDirection = directions.RIGHT
         self.generation += 1
         self.rewardPerGeneration.append(0)
+        self.framesPerSecond = fastForwardFramesPerSecond
+        self.isDisplayGeneration = self.generation == self.generationToRender
+        if shouldRender:
+            if self.isDisplayGeneration:
+                self.generationToRender = math.ceil(self.generationToRender * 1.1)
+                self.framesPerSecond = displayGenerationFramesPerSecond
+            self.render()
         return self.getObservationSpace()
 
     def step(self, action):
         self.convertActionToMove(action)
         if not self.isValidMove():
             reward, done = (
-                -10,
+                -100,
                 True,
             )  # discourage making invalid moves, huge negative score and immediately end game
         else:
             self.moveSnake()
             reward, done = self.calculateMoveAftermath()
-
-        if shouldRender and self.generation % renderInterval < renderCount:
+        
+        if shouldRender and self.isDisplayGeneration and self.generation % 1000:
             self.render()
 
         self.rewardPerGeneration[self.generation] += reward
@@ -133,12 +144,21 @@ class SnakeEnv(gym.Env):
         pygame.draw.rect(self.screen, (128, 0, 0, 100), shadow_rect, border_radius=15)
 
         # Add a score display
-        font = pygame.font.Font(None, 36)
+        font = pygame.font.Font(None, 24)
         score_text = font.render(f"Score: {self.rewardPerGeneration[self.generation]}", True, (255, 255, 255))
         self.screen.blit(score_text, (10, 10))
 
+
+        generation_text = font.render(f"Generation: {self.generation}", True, (255, 255, 255))
+        self.screen.blit(generation_text, (self.cellSize, 30))
+
+        if self.framesPerSecond == fastForwardFramesPerSecond:
+            fast_forward_text = font.render(f"Fast forwarding to generation {self.generationToRender}...", True, (255, 255, 255))
+            self.screen.blit(fast_forward_text, (10, 50))
+
         pygame.display.flip()
-        self.clock.tick(6)  # Control game speed
+        
+        self.clock.tick(self.framesPerSecond)
 
     def getObservationSpace(self):
         symbolToNumber = {" ": 0, "F": 1, "H": 2, "B": 3}
@@ -259,15 +279,15 @@ class SnakeEnv(gym.Env):
 
     def calculateMoveAftermath(self):
         if len(self.snake) == self.gridSize**2:
-            reward = 10000000
+            reward = 10000000 # maxxed out the board! huge score
             done = True
         elif self.atFood():
             self.generateFoodInEmptySpace()
-            reward = 10 * len(self.snake)
+            reward = 10
             done = False
         elif self.outOfBounds() or self.selfCollision():
             self.snake.pop()
-            reward = -10
+            reward = -100
             done = True
         elif self.movedTowardsFood():
             self.snake.pop()
